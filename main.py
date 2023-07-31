@@ -1,91 +1,52 @@
-MENU = {
-    "espresso": {
-        "ingredients": {
-            "water": 50,
-            "coffee": 18,
-        },
-        "cost": 1.5,
-    },
-    "latte": {
-        "ingredients": {
-            "water": 200,
-            "milk": 150,
-            "coffee": 24,
-        },
-        "cost": 2.5,
-    },
-    "cappuccino": {
-        "ingredients": {
-            "water": 250,
-            "milk": 100,
-            "coffee": 24,
-        },
-        "cost": 3.0,
-    }
-}
-profit = 0
-resources = {
-    "water": 300,
-    "milk": 200,
-    "coffee": 100,
-}
+import requests
+from datetime import datetime
+import smtplib
+import time
 
-def enough_resources(order_ingredients):
-    for n in order_ingredients:
-        if order_ingredients[n] >= resources[n]:
-            print(f"sorry there is not enough {n}")
-            return False
-    return True
+my_email = "kagisele@outlook.com"
+my_password = "kazeGisele011"
+my_lat = 51.507351
+my_lng = -0.127758
 
-def pay_coin():
-    print("input coin")
-    total = int(input("how many quarters?")) * 0.25
-    total += int(input("how many dimes?")) * 0.1
-    total += int(input("how many nickels?")) * 0.05
-    total += int(input("how many pennies?")) * 0.01
-    return total
 
-def transaction(money_received, price):
-    if money_received >= price:
-        change = round(money_received - price, 2)
-        print(f"Here is ${change} in change")
-        global profit
-        profit += price
+def iss_overhead():
+    response = requests.get(url="http://api.open-notify.org/iss-now.json")
+    response.raise_for_status()
+    data = response.json()
+
+    iss_latitude = float(data["iss_position"]["latitude"])
+    iss_longitude = float(data["iss_position"]["longitude"])
+
+    if my_lat-5 <= iss_latitude <= my_lat+5 and my_lng-5 <= iss_longitude <= my_lng+5:
         return True
-    else:
-        print("sorry that is not enough money. money refunded")
-        return False
 
 
-def make_coffee(drink_name, order_ingredients):
-    for n in order_ingredients:
-        resources[n] -= order_ingredients[n]
-    print(f"Here is your {drink_name}!")
+def night():
+    parameters = {
+        "lat": my_lat,
+        "lng": my_lng,
+        "formatted": 0
+    }
+
+    response = requests.get("https://api.sunrise-sunset.org/json", params=parameters)
+    response.raise_for_status()
+    data = response.json()
+
+    sunrise = int(data["results"]["sunrise"].split("T")[1].split(":")[0])
+    sunset = int(data["results"]["sunset"].split("T")[1].split(":")[0])
+
+    now_time = datetime.now().hour
+    if now_time >= sunset or now_time <= sunrise:
+        return True
 
 
-On = True
-while On:
-    choice = input("what would you like?(espresso/latte/cappuccino):")
-    if choice == "off":
-        On = False
-    elif choice == "report":
-        print(f"water: {resources['water']}ml")
-        print(f"milk: {resources['milk']}ml")
-        print(f"coffee: {resources['coffee']}g")
-        print(f"money: ${profit}")
-    else:
-        drink = MENU[choice]
-        if enough_resources(drink["ingredients"]):
-            payment = pay_coin()
-            if transaction(payment, drink["cost"]):
-                make_coffee(choice, drink["ingredients"])
-
-
-
-
-
-
-
-
-
-
+while True:
+    time.sleep(60)
+    if iss_overhead() and night():
+        connection = smtplib.SMTP("smtp-mail.outlook.com")
+        connection.login(my_email, my_password)
+        connection.sendmail(
+            from_addr=my_email,
+            to_addrs=my_email,
+            msg=f"Subject:Look Up\n\nThe ISS is above you in the sky."
+        )
